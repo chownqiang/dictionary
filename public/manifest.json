@@ -1,0 +1,9 @@
+{
+  "short_name": "翻译助手",
+  "name": "Jhon Dictionary",
+  "icons": [],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#1976d2",
+  "background_color": "#ffffff"
+} 

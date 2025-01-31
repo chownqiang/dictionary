@@ -1,0 +1,66 @@
+{
+  "name": "jhon-dictionary",
+  "version": "1.0.0",
+  "description": "A cross-platform dictionary application",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "dev": "npm run clean && concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
+    "dev:vite": "vite",
+    "dev:electron": "tsc && cross-env NODE_ENV=development electron .",
+    "build": "npm run clean && npm run build:vite && npm run build:electron && electron-builder",
+    "build:vite": "vite build",
+    "build:electron": "tsc -p tsconfig.json",
+    "preview": "vite preview",
+    "clean": "rimraf dist"
+  },
+  "build": {
+    "appId": "com.jhon.dictionary",
+    "mac": {
+      "category": "public.app-category.utilities"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    }
+  },
+  "keywords": [
+    "dictionary",
+    "translation",
+    "electron"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@emotion/react": "^11.11.3",
+    "@emotion/styled": "^11.11.0",
+    "@mui/icons-material": "^5.15.3",
+    "@mui/material": "^5.15.3",
+    "@types/node": "^20.10.6",
+    "@types/react": "^18.2.46",
+    "@types/react-dom": "^18.2.18",
+    "@vitejs/plugin-react": "^4.2.1",
+    "axios": "^1.6.3",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^28.1.1",
+    "electron-builder": "^24.9.1",
+    "electron-reload": "^2.0.0-alpha.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.10"
+  },
+  "dependencies": {
+    "react-router-dom": "^7.1.4"
+  }
+}
