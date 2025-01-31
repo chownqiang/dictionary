@@ -6,6 +6,7 @@ node_modules/
 # Production
 /dist
 /build
+/release
 
 # Debug
 npm-debug.log*

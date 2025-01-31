@@ -2,6 +2,8 @@
   "name": "jhon-dictionary",
   "version": "1.0.0",
   "description": "A cross-platform dictionary application",
+  "author": "Jhon-semfoundry",
+  "license": "MIT",
   "main": "dist/main/main.js",
   "scripts": {
     "dev": "npm run clean && concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
@@ -37,8 +39,6 @@
     "translation",
     "electron"
   ],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
     "@emotion/react": "^11.11.3",
     "@emotion/styled": "^11.11.0",
