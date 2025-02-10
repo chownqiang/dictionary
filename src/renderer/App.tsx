@@ -1,17 +1,21 @@
+import { Brightness4, Brightness7 } from '@mui/icons-material';
 import {
     Box,
     Button,
     CircularProgress,
     Container,
     FormControl,
+    IconButton,
     InputLabel,
     MenuItem,
     Paper,
     Select,
     TextField,
     Typography,
+    useTheme,
 } from '@mui/material';
 import React, { useEffect, useState } from 'react';
+import { useTheme as useCustomTheme } from '../contexts/ThemeContext';
 
 interface Model {
   name: string;
@@ -20,6 +24,8 @@ interface Model {
 }
 
 const App: React.FC = () => {
+  const theme = useTheme();
+  const { isDarkMode, toggleTheme } = useCustomTheme();
   const [inputText, setInputText] = useState('');
   const [translation, setTranslation] = useState('');
   const [loading, setLoading] = useState(false);
@@ -103,9 +109,14 @@ const App: React.FC = () => {
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
-      <Typography variant="h4" gutterBottom>
-        翻译助手
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4">
+          翻译助手
+        </Typography>
+        <IconButton onClick={toggleTheme} color="inherit">
+          {isDarkMode ? <Brightness7 /> : <Brightness4 />}
+        </IconButton>
+      </Box>
       
       <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
         <FormControl fullWidth sx={{ mb: 3 }}>
@@ -160,7 +171,7 @@ const App: React.FC = () => {
             sx={{
               minHeight: '100px',
               whiteSpace: 'pre-wrap',
-              bgcolor: 'grey.50',
+              bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
               p: 2,
               borderRadius: 1,
             }}

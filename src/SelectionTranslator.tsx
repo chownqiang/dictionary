@@ -1,17 +1,20 @@
+import { Brightness4, Brightness7 } from '@mui/icons-material';
 import CloseIcon from '@mui/icons-material/Close';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import PushPinIcon from '@mui/icons-material/PushPin';
 import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
 import {
-  Box,
-  CircularProgress,
-  IconButton,
-  Paper,
-  Tooltip,
-  Typography,
+    Box,
+    CircularProgress,
+    IconButton,
+    Paper,
+    Tooltip,
+    Typography,
+    useTheme,
 } from '@mui/material';
 import { ipcRenderer } from 'electron';
 import React, { useEffect, useState } from 'react';
+import { useTheme as useCustomTheme } from './contexts/ThemeContext';
 
 // 简单的语言检测函数
 const detectLanguage = (text: string): 'zh' | 'en' => {
@@ -21,6 +24,8 @@ const detectLanguage = (text: string): 'zh' | 'en' => {
 };
 
 const SelectionTranslator: React.FC = () => {
+  const theme = useTheme();
+  const { isDarkMode, toggleTheme } = useCustomTheme();
   const [text, setText] = useState('');
   const [translation, setTranslation] = useState('');
   const [loading, setLoading] = useState(false);
@@ -188,6 +193,11 @@ const SelectionTranslator: React.FC = () => {
           {sourceLanguage === 'zh' ? '中 → 英' : '英 → 中'}
         </Typography>
         <Box>
+          <Tooltip title="切换主题">
+            <IconButton size="small" onClick={toggleTheme} sx={{ color: 'white', mr: 1 }}>
+              {isDarkMode ? <Brightness7 /> : <Brightness4 />}
+            </IconButton>
+          </Tooltip>
           <Tooltip title="调试工具">
             <IconButton size="small" onClick={handleOpenDevTools} sx={{ color: 'white', mr: 1 }}>
               <HelpOutlineIcon />
@@ -224,7 +234,7 @@ const SelectionTranslator: React.FC = () => {
             <Box sx={{ 
               mt: 2, 
               p: 1, 
-              bgcolor: 'grey.100', 
+              bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
               borderRadius: 1,
               maxHeight: '200px',
               overflow: 'auto'
