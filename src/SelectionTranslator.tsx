@@ -3,6 +3,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import PushPinIcon from '@mui/icons-material/PushPin';
 import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import {
     Box,
     CircularProgress,
@@ -162,6 +163,27 @@ const SelectionTranslator: React.FC = () => {
     ipcRenderer.send('open-dev-tools');
   };
 
+  const handleSpeak = (text: string, isSourceText: boolean = false) => {
+    if (!text) return;
+    
+    // 停止当前正在播放的语音
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    // 根据文本类型和翻译方向设置发音语言
+    if (isSourceText) {
+      utterance.lang = sourceLanguage === 'zh' ? 'zh-CN' : 'en-US';
+    } else {
+      utterance.lang = sourceLanguage === 'zh' ? 'en-US' : 'zh-CN';
+    }
+    // 设置语速
+    utterance.rate = 1.0;
+    // 设置音量
+    utterance.volume = 1.0;
+    
+    window.speechSynthesis.speak(utterance);
+  };
+
   return (
     <Paper
       sx={{
@@ -213,6 +235,22 @@ const SelectionTranslator: React.FC = () => {
       </Box>
 
       <Box sx={{ p: 2, flex: 1, overflow: 'auto' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+            原文
+          </Typography>
+          {text && (
+            <Tooltip title="朗读原文">
+              <IconButton 
+                size="small" 
+                onClick={() => handleSpeak(text, true)}
+                color="primary"
+              >
+                <VolumeUpIcon />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
         <Typography variant="body2" gutterBottom>
           {text}
         </Typography>
@@ -222,9 +260,27 @@ const SelectionTranslator: React.FC = () => {
             <CircularProgress size={20} />
           </Box>
         ) : (
-          <Typography variant="body2" color="text.secondary">
-            {translation}
-          </Typography>
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                译文
+              </Typography>
+              {translation && (
+                <Tooltip title="朗读译文">
+                  <IconButton 
+                    size="small" 
+                    onClick={() => handleSpeak(translation)}
+                    color="primary"
+                  >
+                    <VolumeUpIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
+            <Typography variant="body2" color="text.secondary">
+              {translation}
+            </Typography>
+          </Box>
         )}
 
         {/* 添加调试日志区域 */}

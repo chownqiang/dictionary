@@ -1,18 +1,20 @@
 import { Brightness4, Brightness7 } from '@mui/icons-material';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import {
-    Box,
-    Button,
-    CircularProgress,
-    Container,
-    FormControl,
-    IconButton,
-    InputLabel,
-    MenuItem,
-    Paper,
-    Select,
-    TextField,
-    Typography,
-    useTheme,
+  Box,
+  Button,
+  CircularProgress,
+  Container,
+  FormControl,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  TextField,
+  Tooltip,
+  Typography,
+  useTheme,
 } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { useTheme as useCustomTheme } from '../contexts/ThemeContext';
@@ -107,6 +109,27 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSpeak = (text: string, isSourceText: boolean = false) => {
+    if (!text) return;
+    
+    // 停止当前正在播放的语音
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    // 根据文本类型和翻译方向设置发音语言
+    if (isSourceText) {
+      utterance.lang = sourceLanguage === 'zh' ? 'zh-CN' : 'en-US';
+    } else {
+      utterance.lang = sourceLanguage === 'zh' ? 'en-US' : 'zh-CN';
+    }
+    // 设置语速
+    utterance.rate = 1.0;
+    // 设置音量
+    utterance.volume = 1.0;
+    
+    window.speechSynthesis.speak(utterance);
+  };
+
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -138,6 +161,23 @@ const App: React.FC = () => {
           {sourceLanguage === 'zh' ? '中文 → 英文' : '英文 → 中文'}
         </Typography>
 
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+            原文
+          </Typography>
+          {inputText && (
+            <Tooltip title="朗读原文">
+              <IconButton 
+                size="small" 
+                onClick={() => handleSpeak(inputText, true)}
+                color="primary"
+              >
+                <VolumeUpIcon />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+
         <TextField
           fullWidth
           multiline
@@ -166,18 +206,36 @@ const App: React.FC = () => {
             <CircularProgress />
           </Box>
         ) : (
-          <Typography
-            variant="body1"
-            sx={{
-              minHeight: '100px',
-              whiteSpace: 'pre-wrap',
-              bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
-              p: 2,
-              borderRadius: 1,
-            }}
-          >
-            {translation}
-          </Typography>
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                译文
+              </Typography>
+              {translation && (
+                <Tooltip title="朗读译文">
+                  <IconButton 
+                    size="small" 
+                    onClick={() => handleSpeak(translation)}
+                    color="primary"
+                  >
+                    <VolumeUpIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Box>
+            <Typography
+              variant="body1"
+              sx={{
+                minHeight: '100px',
+                whiteSpace: 'pre-wrap',
+                bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
+                p: 2,
+                borderRadius: 1,
+              }}
+            >
+              {translation}
+            </Typography>
+          </Box>
         )}
       </Paper>
     </Container>
