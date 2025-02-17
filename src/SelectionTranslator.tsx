@@ -1,21 +1,25 @@
 import { Brightness4, Brightness7 } from '@mui/icons-material';
 import CloseIcon from '@mui/icons-material/Close';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import PushPinIcon from '@mui/icons-material/PushPin';
 import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import {
-    Box,
-    CircularProgress,
-    IconButton,
-    Paper,
-    Tooltip,
-    Typography,
-    useTheme,
+  Box,
+  CircularProgress,
+  IconButton,
+  Paper,
+  Snackbar,
+  Tooltip,
+  Typography,
+  useTheme,
 } from '@mui/material';
 import { ipcRenderer } from 'electron';
 import React, { useEffect, useState } from 'react';
 import { useTheme as useCustomTheme } from './contexts/ThemeContext';
+
+const DEFAULT_MODEL = 'llama3.2-vision:11b';
 
 // 简单的语言检测函数
 const detectLanguage = (text: string): 'zh' | 'en' => {
@@ -23,6 +27,12 @@ const detectLanguage = (text: string): 'zh' | 'en' => {
   const zhPattern = /[\u4e00-\u9fa5]/;
   return zhPattern.test(text) ? 'zh' : 'en';
 };
+
+interface Model {
+  name: string;
+  modified_at: string;
+  size: number;
+}
 
 const SelectionTranslator: React.FC = () => {
   const theme = useTheme();
@@ -32,9 +42,30 @@ const SelectionTranslator: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
   const [sourceLanguage, setSourceLanguage] = useState<'zh' | 'en'>('en');
-  const [model, setModel] = useState('llama3.2-vision:11b');
+  const [model, setModel] = useState('');
   const [logs, setLogs] = useState<string[]>([]);  // 添加日志状态
   const DEBUG = true;  // 默认开启调试模式
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+
+  // 获取可用模型并设置默认模型
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const response = await fetch('http://localhost:11434/api/tags');
+        const data = await response.json();
+        if (data.models && data.models.length > 0) {
+          const defaultModel = data.models.find((m: Model) => m.name === DEFAULT_MODEL);
+          setModel(defaultModel ? defaultModel.name : data.models[0].name);
+        }
+      } catch (error) {
+        console.error('获取模型列表失败:', error);
+        debug('获取模型列表失败:', error);
+      }
+    };
+
+    fetchModels();
+  }, []);
 
   // 修改调试日志函数
   const debug = (...args: any[]) => {
@@ -184,6 +215,18 @@ const SelectionTranslator: React.FC = () => {
     window.speechSynthesis.speak(utterance);
   };
 
+  const handleCopy = async (text: string, type: '原文' | '译文') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setSnackbarMessage(`${type}已复制到剪贴板`);
+      setSnackbarOpen(true);
+    } catch (err) {
+      console.error('复制失败:', err);
+      setSnackbarMessage('复制失败');
+      setSnackbarOpen(true);
+    }
+  };
+
   return (
     <Paper
       sx={{
@@ -240,15 +283,27 @@ const SelectionTranslator: React.FC = () => {
             原文
           </Typography>
           {text && (
-            <Tooltip title="朗读原文">
-              <IconButton 
-                size="small" 
-                onClick={() => handleSpeak(text, true)}
-                color="primary"
-              >
-                <VolumeUpIcon />
-              </IconButton>
-            </Tooltip>
+            <>
+              <Tooltip title="复制原文">
+                <IconButton 
+                  size="small" 
+                  onClick={() => handleCopy(text, '原文')}
+                  color="primary"
+                  sx={{ mr: 1 }}
+                >
+                  <ContentCopyIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="朗读原文">
+                <IconButton 
+                  size="small" 
+                  onClick={() => handleSpeak(text, true)}
+                  color="primary"
+                >
+                  <VolumeUpIcon />
+                </IconButton>
+              </Tooltip>
+            </>
           )}
         </Box>
         <Typography variant="body2" gutterBottom>
@@ -266,15 +321,27 @@ const SelectionTranslator: React.FC = () => {
                 译文
               </Typography>
               {translation && (
-                <Tooltip title="朗读译文">
-                  <IconButton 
-                    size="small" 
-                    onClick={() => handleSpeak(translation)}
-                    color="primary"
-                  >
-                    <VolumeUpIcon />
-                  </IconButton>
-                </Tooltip>
+                <>
+                  <Tooltip title="复制译文">
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleCopy(translation, '译文')}
+                      color="primary"
+                      sx={{ mr: 1 }}
+                    >
+                      <ContentCopyIcon />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="朗读译文">
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleSpeak(translation)}
+                      color="primary"
+                    >
+                      <VolumeUpIcon />
+                    </IconButton>
+                  </Tooltip>
+                </>
               )}
             </Box>
             <Typography variant="body2" color="text.secondary">
@@ -326,6 +393,14 @@ const SelectionTranslator: React.FC = () => {
           </>
         )}
       </Box>
+
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={2000}
+        onClose={() => setSnackbarOpen(false)}
+        message={snackbarMessage}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Paper>
   );
 };

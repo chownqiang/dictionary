@@ -1,4 +1,5 @@
 import { Brightness4, Brightness7 } from '@mui/icons-material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import {
   Box,
@@ -11,6 +12,7 @@ import {
   MenuItem,
   Paper,
   Select,
+  Snackbar,
   TextField,
   Tooltip,
   Typography,
@@ -25,6 +27,8 @@ interface Model {
   size: number;
 }
 
+const DEFAULT_MODEL = 'llama3.2-vision:11b';
+
 const App: React.FC = () => {
   const theme = useTheme();
   const { isDarkMode, toggleTheme } = useCustomTheme();
@@ -35,6 +39,8 @@ const App: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState('');
   const [sourceLanguage, setSourceLanguage] = useState<'zh' | 'en'>('zh');
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
 
   useEffect(() => {
     fetchModels();
@@ -45,8 +51,11 @@ const App: React.FC = () => {
       const response = await fetch('http://localhost:11434/api/tags');
       const data = await response.json();
       setModels(data.models);
-      if (data.models.length > 0) {
-        setSelectedModel(data.models[0].name);
+      
+      // 设置默认模型
+      if (data.models && data.models.length > 0) {
+        const defaultModel = data.models.find((m: Model) => m.name === DEFAULT_MODEL);
+        setSelectedModel(defaultModel ? defaultModel.name : data.models[0].name);
       }
     } catch (error) {
       console.error('获取模型列表失败:', error);
@@ -130,6 +139,18 @@ const App: React.FC = () => {
     window.speechSynthesis.speak(utterance);
   };
 
+  const handleCopy = async (text: string, type: '原文' | '译文') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setSnackbarMessage(`${type}已复制到剪贴板`);
+      setSnackbarOpen(true);
+    } catch (err) {
+      console.error('复制失败:', err);
+      setSnackbarMessage('复制失败');
+      setSnackbarOpen(true);
+    }
+  };
+
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -166,15 +187,27 @@ const App: React.FC = () => {
             原文
           </Typography>
           {inputText && (
-            <Tooltip title="朗读原文">
-              <IconButton 
-                size="small" 
-                onClick={() => handleSpeak(inputText, true)}
-                color="primary"
-              >
-                <VolumeUpIcon />
-              </IconButton>
-            </Tooltip>
+            <>
+              <Tooltip title="复制原文">
+                <IconButton 
+                  size="small" 
+                  onClick={() => handleCopy(inputText, '原文')}
+                  color="primary"
+                  sx={{ mr: 1 }}
+                >
+                  <ContentCopyIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="朗读原文">
+                <IconButton 
+                  size="small" 
+                  onClick={() => handleSpeak(inputText, true)}
+                  color="primary"
+                >
+                  <VolumeUpIcon />
+                </IconButton>
+              </Tooltip>
+            </>
           )}
         </Box>
 
@@ -212,15 +245,27 @@ const App: React.FC = () => {
                 译文
               </Typography>
               {translation && (
-                <Tooltip title="朗读译文">
-                  <IconButton 
-                    size="small" 
-                    onClick={() => handleSpeak(translation)}
-                    color="primary"
-                  >
-                    <VolumeUpIcon />
-                  </IconButton>
-                </Tooltip>
+                <>
+                  <Tooltip title="复制译文">
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleCopy(translation, '译文')}
+                      color="primary"
+                      sx={{ mr: 1 }}
+                    >
+                      <ContentCopyIcon />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="朗读译文">
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleSpeak(translation)}
+                      color="primary"
+                    >
+                      <VolumeUpIcon />
+                    </IconButton>
+                  </Tooltip>
+                </>
               )}
             </Box>
             <Typography
@@ -238,6 +283,14 @@ const App: React.FC = () => {
           </Box>
         )}
       </Paper>
+
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={2000}
+        onClose={() => setSnackbarOpen(false)}
+        message={snackbarMessage}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Container>
   );
 };
