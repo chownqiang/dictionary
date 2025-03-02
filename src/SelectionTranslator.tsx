@@ -1,19 +1,21 @@
-import { Brightness4, Brightness7 } from '@mui/icons-material';
+import { Brightness4, Brightness7, ColorLens } from '@mui/icons-material';
 import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import PushPinIcon from '@mui/icons-material/PushPin';
 import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import SwapVertIcon from '@mui/icons-material/SwapVert';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import {
-  Box,
-  CircularProgress,
-  IconButton,
-  Paper,
-  Snackbar,
-  Tooltip,
-  Typography,
-  useTheme,
+    Box,
+    CircularProgress,
+    IconButton,
+    Paper,
+    Snackbar,
+    Tooltip,
+    Typography,
+    useTheme
 } from '@mui/material';
 import { ipcRenderer } from 'electron';
 import React, { useEffect, useState } from 'react';
@@ -36,7 +38,7 @@ interface Model {
 
 const SelectionTranslator: React.FC = () => {
   const theme = useTheme();
-  const { isDarkMode, toggleTheme } = useCustomTheme();
+  const { isDarkMode, toggleTheme, themeMode } = useCustomTheme();
   const [text, setText] = useState('');
   const [translation, setTranslation] = useState('');
   const [loading, setLoading] = useState(false);
@@ -227,6 +229,30 @@ const SelectionTranslator: React.FC = () => {
     }
   };
 
+  // 根据当前主题返回适当的图标
+  const getThemeIcon = () => {
+    switch (themeMode) {
+      case 'light':
+        return <Brightness4 />;
+      case 'dark':
+        return <Brightness7 />;
+      case 'purple':
+        return <ColorLens />;
+      default:
+        return <Brightness4 />;
+    }
+  };
+
+  // 将译文内容作为原文，并切换翻译方向
+  const swapTextAndTranslation = () => {
+    if (translation) {
+      setText(translation);
+      setTranslation('');
+      // 切换翻译方向
+      setSourceLanguage(prev => prev === 'zh' ? 'en' : 'zh');
+    }
+  };
+
   return (
     <Paper
       sx={{
@@ -253,14 +279,28 @@ const SelectionTranslator: React.FC = () => {
         <Typography 
           variant="subtitle2" 
           onClick={toggleLanguage}
-          sx={{ cursor: 'pointer' }}
+          sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
         >
-          {sourceLanguage === 'zh' ? '中 → 英' : '英 → 中'}
+          <span>{sourceLanguage === 'zh' ? '中文' : '英文'}</span>
+          <SwapHorizIcon fontSize="small" sx={{ mx: 0.5 }} />
+          <span>{sourceLanguage === 'zh' ? '英文' : '中文'}</span>
         </Typography>
         <Box>
           <Tooltip title="切换主题">
-            <IconButton size="small" onClick={toggleTheme} sx={{ color: 'white', mr: 1 }}>
-              {isDarkMode ? <Brightness7 /> : <Brightness4 />}
+            <IconButton 
+              size="small" 
+              onClick={toggleTheme} 
+              sx={{ 
+                color: 'white', 
+                mr: 1,
+                ...(themeMode === 'purple' && {
+                  '&:hover': {
+                    bgcolor: 'rgba(255, 255, 255, 0.15)'
+                  }
+                })
+              }}
+            >
+              {getThemeIcon()}
             </IconButton>
           </Tooltip>
           <Tooltip title="调试工具">
@@ -306,22 +346,48 @@ const SelectionTranslator: React.FC = () => {
             </>
           )}
         </Box>
-        <Typography variant="body2" gutterBottom>
+        <Typography 
+          variant="body2" 
+          sx={{
+            whiteSpace: 'pre-wrap',
+            bgcolor: themeMode === 'purple' 
+              ? (isDarkMode ? '#382952' : '#f5f0fa')  
+              : (theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50'),
+            p: 2,
+            borderRadius: 1,
+            color: themeMode === 'purple'
+              ? (isDarkMode ? '#e1d9eb' : '#382952')
+              : 'inherit'
+          }}
+        >
           {text}
         </Typography>
-        <Box sx={{ my: 1, height: '1px', bgcolor: 'divider' }} />
+        <Box sx={{ my: 2, height: '1px', bgcolor: 'divider' }} />
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
             <CircularProgress size={20} />
           </Box>
         ) : (
           <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
-                译文
-              </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Typography variant="caption" color="text.secondary">
+                  译文
+                </Typography>
+                <Tooltip title="将译文设为原文">
+                  <IconButton 
+                    size="small" 
+                    onClick={swapTextAndTranslation}
+                    disabled={!translation}
+                    color="primary"
+                    sx={{ ml: 1 }}
+                  >
+                    <SwapVertIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
               {translation && (
-                <>
+                <Box>
                   <Tooltip title="复制译文">
                     <IconButton 
                       size="small" 
@@ -341,10 +407,23 @@ const SelectionTranslator: React.FC = () => {
                       <VolumeUpIcon />
                     </IconButton>
                   </Tooltip>
-                </>
+                </Box>
               )}
             </Box>
-            <Typography variant="body2" color="text.secondary">
+            <Typography 
+              variant="body2" 
+              sx={{
+                whiteSpace: 'pre-wrap',
+                bgcolor: themeMode === 'purple' 
+                  ? (isDarkMode ? '#382952' : '#f5f0fa')  
+                  : (theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50'),
+                p: 2,
+                borderRadius: 1,
+                color: themeMode === 'purple'
+                  ? (isDarkMode ? '#e1d9eb' : '#382952')
+                  : 'text.secondary'
+              }}
+            >
               {translation}
             </Typography>
           </Box>
@@ -357,7 +436,9 @@ const SelectionTranslator: React.FC = () => {
             <Box sx={{ 
               mt: 2, 
               p: 1, 
-              bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
+              bgcolor: themeMode === 'purple'
+                ? (isDarkMode ? '#2d1f3d' : '#f5f0fa')
+                : (theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100'),
               borderRadius: 1,
               maxHeight: '200px',
               overflow: 'auto'

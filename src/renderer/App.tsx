@@ -1,22 +1,24 @@
-import { Brightness4, Brightness7 } from '@mui/icons-material';
+import { Brightness4, Brightness7, ColorLens } from '@mui/icons-material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import SwapVertIcon from '@mui/icons-material/SwapVert';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import {
-  Box,
-  Button,
-  CircularProgress,
-  Container,
-  FormControl,
-  IconButton,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
-  Snackbar,
-  TextField,
-  Tooltip,
-  Typography,
-  useTheme,
+    Box,
+    Button,
+    CircularProgress,
+    Container,
+    FormControl,
+    IconButton,
+    InputLabel,
+    MenuItem,
+    Paper,
+    Select,
+    Snackbar,
+    TextField,
+    Tooltip,
+    Typography,
+    useTheme,
 } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { useTheme as useCustomTheme } from '../contexts/ThemeContext';
@@ -31,7 +33,7 @@ const DEFAULT_MODEL = 'llama3.2-vision:11b';
 
 const App: React.FC = () => {
   const theme = useTheme();
-  const { isDarkMode, toggleTheme } = useCustomTheme();
+  const { isDarkMode, toggleTheme, themeMode } = useCustomTheme();
   const [inputText, setInputText] = useState('');
   const [translation, setTranslation] = useState('');
   const [loading, setLoading] = useState(false);
@@ -70,20 +72,27 @@ const App: React.FC = () => {
   const handleInputChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = event.target.value;
     setInputText(text);
-    const detectedLang = detectLanguage(text);
-    setSourceLanguage(detectedLang);
-
-    // 清除之前的定时器
-    if (typingTimeout) {
-      clearTimeout(typingTimeout);
-    }
-
-    // 设置新的定时器，在用户停止输入500ms后触发翻译
+    
     if (text.trim()) {
+      // 检测语言并适当设置
+      const detectedLang = detectLanguage(text);
+      if (detectedLang !== sourceLanguage) {
+        setSourceLanguage(detectedLang);
+      }
+
+      // 清除之前的定时器
+      if (typingTimeout) {
+        clearTimeout(typingTimeout);
+      }
+
+      // 设置新的定时器，在用户停止输入500ms后触发翻译
       const newTimeout = setTimeout(() => {
         handleTranslate(text);
       }, 500);
       setTypingTimeout(newTimeout);
+    } else {
+      // 如果文本为空，清空翻译结果
+      setTranslation('');
     }
   };
 
@@ -151,15 +160,51 @@ const App: React.FC = () => {
     }
   };
 
+  const toggleLanguage = () => {
+    setSourceLanguage(prev => prev === 'zh' ? 'en' : 'zh');
+    // 清空翻译结果
+    setTranslation('');
+  };
+
+  // 将译文内容作为原文，并切换翻译方向
+  const swapTextAndTranslation = () => {
+    if (translation) {
+      setInputText(translation);
+      setTranslation('');
+      // 切换翻译方向
+      setSourceLanguage(prev => prev === 'zh' ? 'en' : 'zh');
+      // 如果有定时器，清除它
+      if (typingTimeout) {
+        clearTimeout(typingTimeout);
+      }
+    }
+  };
+
+  // 根据当前主题返回适当的图标
+  const getThemeIcon = () => {
+    switch (themeMode) {
+      case 'light':
+        return <Brightness4 />;
+      case 'dark':
+        return <Brightness7 />;
+      case 'purple':
+        return <ColorLens />;
+      default:
+        return <Brightness4 />;
+    }
+  };
+
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">
           翻译助手
         </Typography>
-        <IconButton onClick={toggleTheme} color="inherit">
-          {isDarkMode ? <Brightness7 /> : <Brightness4 />}
-        </IconButton>
+        <Tooltip title="切换主题模式">
+          <IconButton onClick={toggleTheme} color="inherit">
+            {getThemeIcon()}
+          </IconButton>
+        </Tooltip>
       </Box>
       
       <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
@@ -178,9 +223,38 @@ const App: React.FC = () => {
           </Select>
         </FormControl>
 
-        <Typography variant="subtitle1" gutterBottom>
-          {sourceLanguage === 'zh' ? '中文 → 英文' : '英文 → 中文'}
-        </Typography>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center',
+          alignItems: 'center', 
+          mb: 2,
+          pb: 1,
+          borderBottom: themeMode === 'purple' 
+            ? `1px solid ${isDarkMode ? '#523f70' : '#b8a6d9'}`
+            : '1px solid rgba(0, 0, 0, 0.12)'
+        }}>
+          <Typography variant="subtitle1" sx={{ mr: 1 }}>
+            {sourceLanguage === 'zh' ? '中文' : '英文'}
+          </Typography>
+          <Tooltip title="切换翻译方向">
+            <IconButton 
+              size="small" 
+              onClick={toggleLanguage}
+              color="primary"
+              sx={{
+                mx: 1,
+                ...(themeMode === 'purple' && {
+                  color: isDarkMode ? '#8a63cc' : '#6a4d93',
+                })
+              }}
+            >
+              <SwapHorizIcon />
+            </IconButton>
+          </Tooltip>
+          <Typography variant="subtitle1" sx={{ ml: 1 }}>
+            {sourceLanguage === 'zh' ? '英文' : '中文'}
+          </Typography>
+        </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
           <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
@@ -219,14 +293,59 @@ const App: React.FC = () => {
           onChange={handleInputChange}
           placeholder="请输入要翻译的文本"
           variant="outlined"
-          sx={{ mb: 2 }}
+          sx={{ 
+            mb: 2,
+            ...(themeMode === 'purple' && {
+              '& .MuiOutlinedInput-root': {
+                '& fieldset': {
+                  borderColor: isDarkMode ? '#523f70' : '#b8a6d9',
+                },
+                '&:hover fieldset': {
+                  borderColor: isDarkMode ? '#6a4d93' : '#8a63cc',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: isDarkMode ? '#8a63cc' : '#6a4d93',
+                },
+                '& textarea': {
+                  color: isDarkMode ? '#e1d9eb' : '#382952',
+                },
+                backgroundColor: isDarkMode ? '#382952' : '#f5f0fa',
+              }
+            })
+          }}
         />
 
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+          <Button
+            variant="outlined"
+            onClick={swapTextAndTranslation}
+            disabled={!translation}
+            startIcon={<SwapVertIcon />}
+            sx={{
+              ...(themeMode === 'purple' && {
+                borderColor: isDarkMode ? '#8a63cc' : '#6a4d93',
+                color: isDarkMode ? '#8a63cc' : '#6a4d93',
+                '&:hover': {
+                  borderColor: isDarkMode ? '#9d74e0' : '#7e5ba7',
+                  backgroundColor: 'rgba(138, 99, 204, 0.04)',
+                },
+              })
+            }}
+          >
+            译文转为原文
+          </Button>
           <Button
             variant="contained"
             onClick={() => handleTranslate()}
             disabled={loading || !inputText.trim()}
+            sx={{
+              ...(themeMode === 'purple' && {
+                backgroundColor: isDarkMode ? '#8a63cc' : '#6a4d93',
+                '&:hover': {
+                  backgroundColor: isDarkMode ? '#9d74e0' : '#7e5ba7',
+                },
+              })
+            }}
           >
             立即翻译
           </Button>
@@ -273,9 +392,14 @@ const App: React.FC = () => {
               sx={{
                 minHeight: '100px',
                 whiteSpace: 'pre-wrap',
-                bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
+                bgcolor: themeMode === 'purple' 
+                  ? (isDarkMode ? '#382952' : '#f5f0fa')  
+                  : (theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50'),
                 p: 2,
                 borderRadius: 1,
+                color: themeMode === 'purple'
+                  ? (isDarkMode ? '#e1d9eb' : '#382952')
+                  : 'inherit'
               }}
             >
               {translation}
