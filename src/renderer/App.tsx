@@ -4,21 +4,21 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import SwapVertIcon from '@mui/icons-material/SwapVert';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import {
-    Box,
-    Button,
-    CircularProgress,
-    Container,
-    FormControl,
-    IconButton,
-    InputLabel,
-    MenuItem,
-    Paper,
-    Select,
-    Snackbar,
-    TextField,
-    Tooltip,
-    Typography,
-    useTheme,
+  Box,
+  Button,
+  CircularProgress,
+  Container,
+  FormControl,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Snackbar,
+  TextField,
+  Tooltip,
+  Typography,
+  useTheme,
 } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { useTheme as useCustomTheme } from '../contexts/ThemeContext';
@@ -44,9 +44,197 @@ const App: React.FC = () => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
+  const detectLanguage = (text: string): 'zh' | 'en' => {
+    if (!text.trim()) return 'en'; // 默认为英文
+    
+    // 增强检测逻辑
+    const chineseChars = text.match(/[\u4e00-\u9fa5]/g) || [];
+    const englishChars = text.match(/[a-zA-Z]/g) || [];
+    
+    // 调试输出
+    console.log('[前端] 语言检测 - 中文字符:', chineseChars.length, '英文字符:', englishChars.length);
+    
+    // 如果中文字符多于英文字符的20%，认为是中文
+    if (chineseChars.length > englishChars.length * 0.2) {
+      return 'zh';
+    }
+    
+    return 'en';
+  };
+
+  // 添加专门处理URL参数的翻译函数，避免依赖问题
+  const handleManualTranslate = (text: string) => {
+    if (!text || !text.trim()) {
+      console.log('[前端] 翻译文本为空，不执行翻译');
+      return;
+    }
+    
+    console.log('[前端] 开始翻译文本:', text.substring(0, 30) + (text.length > 30 ? '...' : ''));
+    
+    try {
+      setLoading(true);
+      const sourceLang = detectLanguage(text);
+      
+      const doTranslate = async () => {
+        try {
+          const prompt = sourceLang === 'zh'
+            ? `将以下中文翻译成英文：\n\n${text}`
+            : `将以下英文翻译成中文：\n\n${text}`;
+    
+          console.log('[前端] 发送翻译请求，使用模型:', selectedModel);
+          const response = await fetch('http://localhost:11434/api/generate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: selectedModel,
+              prompt: `You are a professional translator. ${prompt}. Only return the translated text, no explanations.`,
+              stream: false,
+            }),
+          });
+    
+          const data = await response.json();
+          console.log('[前端] 翻译完成，设置译文');
+          setTranslation(data.response);
+        } catch (error) {
+          console.error('[前端] 翻译请求错误:', error);
+          setTranslation('翻译出错，请检查 Ollama 服务是否运行');
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      doTranslate();
+    } catch (error) {
+      console.error('[前端] 执行翻译过程出错:', error);
+      setLoading(false);
+      setTranslation('翻译处理过程出错');
+    }
+  };
+
+  const handleReplacePendingText = () => {
+    try {
+      const pendingText = sessionStorage.getItem('pendingText');
+      if (pendingText) {
+        console.log('[前端] 替换为新文本:', pendingText.substring(0, 30) + (pendingText.length > 30 ? '...' : ''));
+        
+        // 检测语言并设置
+        const detectedLang = detectLanguage(pendingText);
+        setSourceLanguage(detectedLang);
+        
+        // 设置新文本
+        setInputText(pendingText);
+        
+        // 清除存储的临时文本
+        sessionStorage.removeItem('pendingText');
+        
+        // 自动触发翻译
+        console.log('[前端] 自动触发替换后的文本翻译');
+        
+        // 使用相同的直接翻译方法
+        const triggerTranslation = () => {
+          if (selectedModel) {
+            console.log('[前端] 使用模型执行翻译:', selectedModel);
+            handleTranslate(pendingText);
+          } else {
+            console.log('[前端] 模型尚未加载，延迟翻译');
+            setTimeout(triggerTranslation, 500);
+          }
+        };
+        
+        // 添加超时保护
+        let attempts = 0;
+        const maxAttempts = 20; // 最多尝试20次，共10秒
+        
+        const safeTranslation = () => {
+          attempts++;
+          // 直接使用handleTranslate函数，不等待selectedModel
+          console.log('[前端] 直接执行翻译，不等待模型加载');
+          handleTranslate(pendingText);
+        };
+        
+        // 延迟以确保状态已更新
+        setTimeout(safeTranslation, 500);
+      }
+    } catch (error) {
+      console.error('[前端] 处理待处理文本出错:', error);
+    }
+  };
+
   useEffect(() => {
     fetchModels();
-  }, []);
+
+    // 添加安全检查和更健壮的错误处理
+    setTimeout(() => {
+      // 延迟检查URL参数，确保组件已完全挂载
+      try {
+        console.log('[前端] 组件挂载完成，检查URL参数');
+        const params = new URLSearchParams(window.location.search);
+        const textParam = params.get('text');
+        
+        if (textParam && textParam.trim()) {
+          const decodedText = decodeURIComponent(textParam);
+          console.log('[前端] 从URL参数获取到文本:', decodedText);
+          
+          // 检查是否已有内容
+          if (inputText && inputText.trim()) {
+            console.log('[前端] 发现已有内容，提示用户是否替换');
+            // 保存新文本到sessionStorage以便后续使用
+            sessionStorage.setItem('pendingText', decodedText);
+            // 显示提示
+            setSnackbarMessage('收到新文本，是否替换当前内容？');
+            setSnackbarOpen(true);
+          } else {
+            // 检测语言并设置
+            const detectedLang = detectLanguage(decodedText);
+            console.log('[前端] 检测到语言:', detectedLang);
+            setSourceLanguage(detectedLang);
+            
+            // 安全地设置状态
+            setInputText(decodedText);
+            
+            // 自动触发翻译
+            console.log('[前端] 自动触发翻译');
+            
+            // 使用现有的handleTranslate函数直接触发翻译
+            const triggerTranslation = () => {
+              // 确保模型已加载并且文本已设置
+              if (selectedModel) {
+                console.log('[前端] 使用模型执行翻译:', selectedModel);
+                handleTranslate(decodedText);
+              } else {
+                console.log('[前端] 模型尚未加载，延迟翻译');
+                // 如果模型未加载，延迟并重试
+                setTimeout(triggerTranslation, 500);
+              }
+            };
+            
+            // 添加超时保护
+            let attempts = 0;
+            const maxAttempts = 20; // 最多尝试20次，共10秒
+            
+            const safeTranslation = () => {
+              attempts++;
+              // 直接使用handleTranslate函数，不等待selectedModel
+              console.log('[前端] 直接执行翻译，不等待模型加载');
+              handleTranslate(decodedText);
+            };
+            
+            // 延迟以确保状态已更新
+            setTimeout(safeTranslation, 500);
+            
+            // 清除URL参数，防止刷新页面时重复处理
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        } else {
+          console.log('[前端] URL中没有有效的文本参数');
+        }
+      } catch (error) {
+        console.error('[前端] 处理URL参数出错:', error);
+      }
+    }, 500);
+  }, []); // 仅在组件挂载时执行一次
 
   const fetchModels = async () => {
     try {
@@ -62,11 +250,6 @@ const App: React.FC = () => {
     } catch (error) {
       console.error('获取模型列表失败:', error);
     }
-  };
-
-  const detectLanguage = (text: string): 'zh' | 'en' => {
-    const zhPattern = /[\u4e00-\u9fa5]/;
-    return zhPattern.test(text) ? 'zh' : 'en';
   };
 
   const handleInputChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -101,27 +284,49 @@ const App: React.FC = () => {
 
     setLoading(true);
     try {
+      // 使用当前选择的模型或默认模型
+      const modelToUse = selectedModel || DEFAULT_MODEL;
+      
+      console.log('[前端] 开始翻译文本:', textToTranslate.substring(0, 30) + (textToTranslate.length > 30 ? '...' : ''));
+      console.log('[前端] 使用模型:', modelToUse);
+      console.log('[前端] 源语言:', sourceLanguage);
+      
       const prompt = sourceLanguage === 'zh'
         ? `将以下中文翻译成英文：\n\n${textToTranslate}`
         : `将以下英文翻译成中文：\n\n${textToTranslate}`;
 
-      const response = await fetch('http://localhost:11434/api/generate', {
+      // 确保目标URL正确
+      const apiUrl = 'http://localhost:11434/api/generate';
+      console.log('[前端] 发送请求到:', apiUrl);
+      
+      const requestBody = {
+        model: modelToUse,
+        prompt: `You are a professional translator. ${prompt}. Only return the translated text, no explanations.`,
+        stream: false,
+      };
+      console.log('[前端] 请求内容:', JSON.stringify(requestBody));
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          model: selectedModel,
-          prompt: `You are a professional translator. ${prompt}. Only return the translated text, no explanations.`,
-          stream: false,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
+      if (!response.ok) {
+        throw new Error(`API响应错误: ${response.status} ${response.statusText}`);
+      }
+
       const data = await response.json();
+      console.log('[前端] 收到翻译响应:', data);
       setTranslation(data.response);
-    } catch (error) {
-      console.error('翻译错误:', error);
+    } catch (error: unknown) {
+      console.error('[前端] 翻译错误:', error);
       setTranslation('翻译出错，请检查 Ollama 服务是否运行');
+      // 显示更详细的错误通知
+      setSnackbarMessage(`翻译失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      setSnackbarOpen(true);
     } finally {
       setLoading(false);
     }
@@ -161,7 +366,12 @@ const App: React.FC = () => {
   };
 
   const toggleLanguage = () => {
-    setSourceLanguage(prev => prev === 'zh' ? 'en' : 'zh');
+    console.log('[前端] 切换语言前:', sourceLanguage);
+    setSourceLanguage(prev => {
+      const newLang = prev === 'zh' ? 'en' : 'zh';
+      console.log('[前端] 语言切换为:', newLang);
+      return newLang;
+    });
     // 清空翻译结果
     setTranslation('');
   };
@@ -410,10 +620,48 @@ const App: React.FC = () => {
 
       <Snackbar
         open={snackbarOpen}
-        autoHideDuration={2000}
+        autoHideDuration={3000}
         onClose={() => setSnackbarOpen(false)}
         message={snackbarMessage}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        action={
+          snackbarMessage.includes('新文本已加载') ? (
+            <Button 
+              color="primary" 
+              size="small" 
+              onClick={() => {
+                setSnackbarOpen(false);
+                handleTranslate();
+              }}
+            >
+              立即翻译
+            </Button>
+          ) : snackbarMessage.includes('替换当前内容') ? (
+            <React.Fragment>
+              <Button 
+                color="primary" 
+                size="small" 
+                onClick={() => {
+                  setSnackbarOpen(false);
+                  handleReplacePendingText();
+                }}
+              >
+                替换
+              </Button>
+              <Button 
+                color="inherit" 
+                size="small" 
+                onClick={() => {
+                  setSnackbarOpen(false);
+                  sessionStorage.removeItem('pendingText');
+                }}
+                style={{ marginLeft: 8 }}
+              >
+                取消
+              </Button>
+            </React.Fragment>
+          ) : undefined
+        }
       />
     </Container>
   );

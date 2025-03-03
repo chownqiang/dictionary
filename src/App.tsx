@@ -1,18 +1,19 @@
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import {
-    Box,
-    Button,
-    CircularProgress,
-    Container,
-    FormControl,
-    InputLabel,
-    MenuItem,
-    Paper,
-    Select,
-    TextField,
-    Typography,
+  Box,
+  Button,
+  CircularProgress,
+  Container,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  TextField,
+  Typography,
 } from '@mui/material';
-import React, { useEffect, useState } from 'react';
+import { ipcRenderer } from 'electron';
+import React, { useCallback, useEffect, useState } from 'react';
 
 interface OllamaModel {
   name: string;
@@ -30,6 +31,42 @@ const App: React.FC = () => {
   const [models, setModels] = useState<OllamaModel[]>([]);
   const [loading, setLoading] = useState(false);
   const [pulling, setPulling] = useState(false);
+
+  // 检测语言的简单函数
+  const detectLanguage = (text: string): 'zh' | 'en' => {
+    // 使用正则表达式检测中文字符
+    const zhPattern = /[\u4e00-\u9fa5]/;
+    return zhPattern.test(text) ? 'zh' : 'en';
+  };
+
+  // 读取URL参数中的文本
+  useEffect(() => {
+    console.log('[前端] 组件挂载，检查URL参数');
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const textParam = params.get('text');
+      
+      if (textParam) {
+        const decodedText = decodeURIComponent(textParam);
+        console.log('[前端] 从URL参数获取到文本:', decodedText);
+        
+        // 检测语言
+        const detectedLang = detectLanguage(decodedText);
+        console.log('[前端] 检测到语言:', detectedLang);
+        
+        // 设置状态
+        setSourceLang(detectedLang);
+        setTargetLang(detectedLang === 'zh' ? 'en' : 'zh');
+        setSourceText(decodedText);
+        
+        console.log('[前端] 已从URL参数设置文本和语言');
+      } else {
+        console.log('[前端] URL中没有文本参数');
+      }
+    } catch (error) {
+      console.error('[前端] 处理URL参数出错:', error);
+    }
+  }, []);
 
   // 获取可用模型列表
   useEffect(() => {
@@ -73,7 +110,8 @@ const App: React.FC = () => {
     }
   };
 
-  const handleTranslate = async () => {
+  // 使用useCallback封装handleTranslate函数
+  const handleTranslate = useCallback(async () => {
     if (!sourceText || !model) return;
     
     setLoading(true);
@@ -98,7 +136,82 @@ const App: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sourceText, model, sourceLang, targetLang]); // 明确列出依赖项
+
+  // 监听来自主进程的翻译请求
+  useEffect(() => {
+    // 监听划词翻译事件
+    const handleSelectionTranslate = (_event: any, selectedText: string) => {
+      // 立即记录消息接收
+      console.log('[IPC接收] 收到划词翻译消息');
+      console.log('[前端] 收到翻译请求，文本:', selectedText ? (selectedText.length > 50 ? selectedText.substring(0, 50) + '...' : selectedText) : '空');
+      
+      // 立即设置文本（简化逻辑，防止状态更新问题）
+      if (selectedText && selectedText.trim()) {
+        console.log('[前端] 文本有效，立即设置');
+        const detectedLang = detectLanguage(selectedText);
+        
+        // 直接更新所有状态
+        setSourceLang(detectedLang);
+        setTargetLang(detectedLang === 'zh' ? 'en' : 'zh');
+        setSourceText(selectedText);
+        
+        // 打印确认
+        console.log('[前端] 状态已更新: 源语言=', detectedLang, '目标语言=', (detectedLang === 'zh' ? 'en' : 'zh'));
+      } else {
+        console.log('[前端] 收到的文本为空或只包含空白字符');
+      }
+    };
+    
+    // 添加手动复制通知处理函数
+    const handleManualCopyNotification = () => {
+      console.log('收到手动复制提示');
+      alert('请先选择文本并手动复制 (Command+C)，然后再按翻译快捷键');
+      // 回复主进程已显示通知
+      ipcRenderer.send('show-manual-copy-notification-reply');
+    };
+    
+    // 添加复制失败通知处理函数
+    const handleCopyFailed = () => {
+      console.log('收到复制失败提示');
+      alert('无法复制选中文本，请手动复制后使用快捷键');
+    };
+    
+    // 添加OCR通知处理函数
+    const handleOCRNotification = () => {
+      console.log('收到OCR功能通知');
+      alert('正在通过OCR识别鼠标所在位置的文本...');
+    };
+    
+    // 添加OCR失败通知处理函数
+    const handleOCRFailedNotification = () => {
+      console.log('收到OCR失败通知');
+      alert('OCR文本识别失败，请尝试调整鼠标位置或使用快捷键手动复制文本。');
+    };
+
+    // 添加事件监听器
+    ipcRenderer.on('translate-selection-to-main', handleSelectionTranslate);
+    ipcRenderer.on('show-manual-copy-notification', handleManualCopyNotification);
+    ipcRenderer.on('copy-failed', handleCopyFailed);
+    ipcRenderer.on('show-ocr-notification', handleOCRNotification);
+    ipcRenderer.on('show-ocr-failed-notification', handleOCRFailedNotification);
+
+    // 组件卸载时移除事件监听器
+    return () => {
+      ipcRenderer.removeListener('translate-selection-to-main', handleSelectionTranslate);
+      ipcRenderer.removeListener('show-manual-copy-notification', handleManualCopyNotification);
+      ipcRenderer.removeListener('copy-failed', handleCopyFailed);
+      ipcRenderer.removeListener('show-ocr-notification', handleOCRNotification);
+      ipcRenderer.removeListener('show-ocr-failed-notification', handleOCRFailedNotification);
+    };
+  }, []); // 保持依赖数组为空
+  
+  // 当sourceText变化时自动翻译
+  useEffect(() => {
+    if (sourceText.trim()) {
+      handleTranslate();
+    }
+  }, [sourceText, handleTranslate]);
 
   const switchLanguages = () => {
     setSourceLang(targetLang);
