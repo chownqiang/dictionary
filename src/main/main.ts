@@ -4,8 +4,11 @@ import { shortcuts } from '../config/shortcuts';
 import { captureScreenAtMouse, extractTextWithLlama } from './utils/ocr';
 import { captureSelectedText } from './utils/textCapture';
 
+// 全局变量与常量定义
 let mainWindow: BrowserWindow | null = null;
 let selectionWindow: BrowserWindow | null = null;
+// OCR快捷键定义为常量，方便全局使用
+const OCR_SHORTCUT = 'Control+Alt+O';
 
 function checkAccessibilityPermission() {
   if (process.platform === 'darwin') {
@@ -65,14 +68,13 @@ function createWindow() {
 
   // 监听窗口准备就绪事件
   mainWindow.webContents.on('did-finish-load', () => {
-    console.log('主窗口内容加载完成，重新检查快捷键注册');
-    // 再次检查快捷键是否已注册
-    console.log('快捷键状态:', shortcuts.translateSelection, 
-                globalShortcut.isRegistered(shortcuts.translateSelection) ? '已注册' : '未注册');
-    
-    if (!globalShortcut.isRegistered(shortcuts.translateSelection)) {
-      console.log('快捷键未注册，尝试重新注册');
+    console.log('主窗口内容加载完成，检查快捷键注册状态');
+    // 只有在快捷键未注册的情况下才重新注册
+    if (!areShortcutsRegistered()) {
+      console.log('快捷键未注册，进行注册');
       registerGlobalShortcuts();
+    } else {
+      console.log('快捷键已注册，无需重新注册');
     }
   });
 
@@ -80,7 +82,9 @@ function createWindow() {
   if (process.platform === 'darwin') {
     // 定期检查权限状态
     setInterval(() => {
-      if (checkAccessibilityPermission()) {
+      // 只有在快捷键未注册且有权限的情况下才注册
+      if (!areShortcutsRegistered() && checkAccessibilityPermission()) {
+        console.log('定期检查：快捷键未注册且有权限，进行注册');
         registerGlobalShortcuts();
       }
     }, 5000); // 每5秒检查一次
@@ -163,8 +167,7 @@ function registerGlobalShortcuts() {
     console.log('备用划词翻译快捷键注册' + (registeredAlt ? '成功' : '失败'));
     
     // 注册OCR功能快捷键
-    const ocrShortcut = 'Control+Alt+O';
-    const registeredOCR = globalShortcut.register(ocrShortcut, () => {
+    const registeredOCR = globalShortcut.register(OCR_SHORTCUT, () => {
       console.log('触发OCR快捷键!');
       if (checkAccessibilityPermission()) {
         handleOCR();
@@ -179,7 +182,7 @@ function registerGlobalShortcuts() {
     console.log('快捷键注册状态检查:', 
                 shortcuts.translateSelection, globalShortcut.isRegistered(shortcuts.translateSelection) ? '已注册' : '未注册',
                 shortcuts.translateSelectionAlt, globalShortcut.isRegistered(shortcuts.translateSelectionAlt) ? '已注册' : '未注册',
-                ocrShortcut, globalShortcut.isRegistered(ocrShortcut) ? '已注册' : '未注册');
+                OCR_SHORTCUT, globalShortcut.isRegistered(OCR_SHORTCUT) ? '已注册' : '未注册');
 
     // 切换窗口显示/隐藏快捷键
     globalShortcut.register(shortcuts.toggleWindow, () => {
@@ -537,4 +540,19 @@ ipcMain.on('hide-selection-window', () => {
   if (selectionWindow) {
     selectionWindow.hide();
   }
-}); 
+});
+
+// 添加一个函数来检查所有快捷键是否已注册
+function areShortcutsRegistered() {
+  const mainRegistered = globalShortcut.isRegistered(shortcuts.translateSelection);
+  const altRegistered = globalShortcut.isRegistered(shortcuts.translateSelectionAlt);
+  const ocrRegistered = globalShortcut.isRegistered(OCR_SHORTCUT);
+  
+  console.log('快捷键注册状态检查:', 
+    shortcuts.translateSelection, mainRegistered ? '已注册' : '未注册',
+    shortcuts.translateSelectionAlt, altRegistered ? '已注册' : '未注册',
+    OCR_SHORTCUT, ocrRegistered ? '已注册' : '未注册'
+  );
+  
+  return mainRegistered && altRegistered && ocrRegistered;
+} 
