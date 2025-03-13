@@ -9,9 +9,10 @@
     "dev": "npm run clean && concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
     "dev:vite": "vite",
     "dev:electron": "tsc && cross-env NODE_ENV=development electron .",
-    "build": "npm run clean && npm run build:vite && npm run build:electron && electron-builder",
+    "build": "npm run clean && npm run build:vite && npm run build:electron && npm run fix-assets && electron-builder",
     "build:vite": "vite build",
     "build:electron": "tsc -p tsconfig.json",
+    "fix-assets": "mkdir -p dist/renderer/src/renderer/assets && cp -r dist/renderer/assets/* dist/renderer/src/renderer/assets/ && sed -i '' 's|../../assets|./assets|g' dist/renderer/src/renderer/index.html",
     "preview": "vite preview",
     "clean": "rimraf dist"
   },

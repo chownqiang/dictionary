@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [react()],
-  base: process.env.NODE_ENV === 'development' ? '/' : './',
+  base: './',
   build: {
     outDir: resolve(__dirname, 'dist/renderer'),
     emptyOutDir: true,

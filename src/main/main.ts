@@ -50,7 +50,7 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   } else {
     // 在生产环境中加载打包后的文件
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../renderer/src/renderer/index.html'));
   }
 
   mainWindow.on('closed', () => {
@@ -234,7 +234,7 @@ function handleGlobalTranslation() {
                 url = `http://localhost:3000?text=${encodeURIComponent(selectedText)}`;
               } else {
                 // 生产环境使用file协议
-                url = `file://${path.join(__dirname, '../renderer/index.html')}?text=${encodeURIComponent(selectedText)}`;
+                url = `file://${path.join(__dirname, '../renderer/src/renderer/index.html')}?text=${encodeURIComponent(selectedText)}`;
               }
               
               console.log('创建窗口并加载URL:', url);
@@ -277,7 +277,7 @@ function handleGlobalTranslation() {
                 url = `http://localhost:3000/src/renderer/?text=${encodeURIComponent(selectedText)}`;
               } else {
                 // 生产环境使用file协议
-                url = `file://${path.join(__dirname, '../renderer/index.html')}?text=${encodeURIComponent(selectedText)}`;
+                url = `file://${path.join(__dirname, '../renderer/src/renderer/index.html')}?text=${encodeURIComponent(selectedText)}`;
               }
               
               console.log('主窗口重新加载URL:', url);
@@ -399,7 +399,7 @@ function sendTextToMainWindow(text: string): void {
         // 在当前窗口中加载带有文本参数的URL
         const url = process.env.NODE_ENV === 'development' 
           ? `http://localhost:3000/src/renderer/?text=${encodedText}` 
-          : `file://${path.join(__dirname, '../renderer/index.html')}?text=${encodedText}`;
+          : `file://${path.join(__dirname, '../renderer/src/renderer/index.html')}?text=${encodedText}`;
         
         console.log('[文本传递] 重新加载窗口，带有文本参数:', url);
         mainWindow.loadURL(url);
